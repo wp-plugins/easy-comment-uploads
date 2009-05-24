@@ -14,25 +14,8 @@ if( !defined('WP_CONTENT_DIR') )
 $upload_dir =  WP_CONTENT_DIR . '/upload/';
 //$upload_url = get_option('siteurl') . '/wp-content/uploads/comments/';
 $upload_url = get_option('siteurl') . '/wp-content/upload/';
-$upload_html = $upload_dir . 'upload.html';
-$upload_php =  $upload_dir . 'upload.php';
-//$upload_html_url = get_option('siteurl') . "/wp-content/uploads/comments/upload.html";
-$upload_html_url = get_option('siteurl') . "/wp-content/upload/upload.html";
 
 $plugin_dir = dirname(__FILE__) . '/';
-
-if (!file_exists($upload_dir)){
-	mkdir($upload_dir);
-}
-
-if ( !file_exists($upload_php))
-copy($plugin_dir . "upload.php", $upload_php);
-
-if ( !file_exists($upload_html))
-copy($plugin_dir . "upload.html", $upload_html);
-
-$fh = fopen($upload_dir . 'upload_url.txt', 'w') or die("can't open file");
-fwrite($fh, $upload_url);
 
 // Replaces [img] tags in comments with linked images (with lightbox support)
 // Accepts either [img]image.png[/img] or [img=image.png]
@@ -47,26 +30,39 @@ return $content;
 // Inserts an iframe below the comment upload form which allows users to upload
 // files and returns a [img] link.
 function comment_upload_form(){
-		global $upload_html, $upload_html_url, $upload_php;
     echo ("
         <br />
         <strong>Upload files:</strong>
         <br />
         Select the file you want, click upload and paste the link produced into your comment
-        <iframe src='" . $upload_html_url . "' width='500px' height='60px' scrolling='auto' frameborder='0'></iframe>
+        <form id=\"file_upload_form\" method=\"post\" enctype=\"multipart/form-data\" action=\"upload.php\">
+        <input name=\"file\" id=\"file\" size=\"27\" type=\"file\" /><br />
+        <input type=\"submit\" name=\"action\" value=\"Upload\" /><br />
+        <iframe id=\"upload_target\" name=\"upload_target\" src=\"\" style=\"width:0;height:0;border:0px solid #fff;\"></iframe>
+        </form>
+        <script type=\"text/javascript\">
+          function init() {
+        	document.getElementById('file_upload_form').onsubmit=function() {
+      		document.getElementById('file_upload_form').target = 'upload_target'; //'upload_target' is the name of the iframe
+	}
+}
+window.onload=init;
+        </script>
     ");
 }
 
+function comment_upload_init() {
+    wp_enqueue_script('swfupload');
+}
+
 function comment_upload_deactivate() {
-				global $upload_html, $upload_php;
-        unlink($upload_html);
-        unlink($upload_php);
-//        unlink(WP_CONTENT_DIR . '/upload.html');
+	/* Deprecated */
 }
 
 // Register code with wordpress
-register_deactivation_hook( __FILE__, 'comment_upload_deactivate' );
+//register_deactivation_hook( __FILE__, 'comment_upload_deactivate' );
 add_filter('comment_text', 'insert_links');
 add_action('comment_form', 'comment_upload_form');
+add_action('init', comment_upload_init);
 
 ?>
