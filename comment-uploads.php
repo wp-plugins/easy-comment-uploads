@@ -4,7 +4,7 @@ Plugin Name: Easy Comment Uploads
 Plugin URI: http://wiki.langtreeshout.org/plugins/commentuploads
 Description: Allow your users to easily upload images in their comments.
 Author: Tom Wright
-Version: 0.16
+Version: 0.20
 Author URI: http://twright.langtreeshout.org/
 */
 
@@ -53,5 +53,17 @@ function comment_upload_form(){
 // Register code with wordpress
 add_filter('comment_text', 'insert_links');
 add_action('comment_form', 'comment_upload_form');
+
+add_action('admin_menu', 'my_plugin_menu');
+
+function my_plugin_menu() {
+  add_options_page('My Plugin Options', 'My Plugin', 8, 'easy-comment-uploads', 'my_plugin_options');
+}
+
+function my_plugin_options() {
+  echo '<div class="wrap">';
+  echo '<p>Here is where the form would go if I actually had options.</p>';
+  echo '</div>';
+}
 
 ?>
