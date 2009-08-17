@@ -12,7 +12,7 @@ $images_only = false;
 
 // Detect whether the uploaded file is an image
 if (eregi('jpeg', $_FILES['file']['type']) || eregi('png', $_FILES['file']['type']) || eregi('gif', $_FILES['file']['type']))
-  $type = "img";
+	$type = "img";
 else
 	$type = "file";
 
@@ -49,28 +49,21 @@ filelink = "<?php echo $filelink ?>";
 filename = "<?php echo $filename ?>";
 
 // Display info for debug
-alert(parent.document.getElementById("comment-p1").value.length);
-alert(parent.document.getElementById("comment-p1").value.length < 0);
-// alert(is_comment_text());
 
 // Return true if there is any text in the comment field
-function is_comment_text () {
-	return (parent.document.getElementById("comment-p1").value.length < 0);
-	/*
-	 || parent.document.getElementById("comment").value || parent.document.forms["commentform"].comment.value
-	*/
+function comment_length () {
 	if (parent.document.getElementById("comment"))
-		return (parent.document.getElementById("comment-p1").value.length < 0);
+		return parent.document.getElementById("comment").value.length;
 	else if (parent.document.getElementById("comment-p1"))
-		return (parent.document.getElementById("comment-p1").value.length < 0);
+		return parent.document.getElementById("comment-p1").value.length;
 	else
-		return (parent.document.forms["commentform"].comment.value < 0);
+		return parent.document.forms["commentform"].comment.value;
 }
 
 // Write txt to comment field
 function write_comment (text) {
 	// Prepend a linebreak code if it is not the first line 
-	if (is_comment_text())
+	if (comment_length() > 0)
 		text = "\n" + text;
 
     // Attempt to write text to comment field (wherever it may be)
