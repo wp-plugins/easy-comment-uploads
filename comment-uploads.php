@@ -17,6 +17,9 @@ $upload_dir =  WP_CONTENT_DIR . '/upload/';
 $upload_url = get_option('siteurl') . '/wp-content/upload/';
 $plugin_dir = dirname(__FILE__) . '/';
 
+// Set textdomain for translations (i18n)
+load_plugin_textdomain( 'easy-comment-uploads', $plugin_dir );
+
 // I/O TODO: Reduce I/O to increase performance
 if (!file_exists($upload_dir))
 	mkdir($upload_dir);
