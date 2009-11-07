@@ -12,9 +12,20 @@ If you like it please rate it, give feedback or you can donate.
 
 = Recent Changes =
 
+**0.30**
+
+ * Much improved options page.
+ * Options for choosing which users can upload comments.
+ * Much nicer formatting for embedded images.
+ * Pretty preview for uploaded images.
+ * New, more "human friendly" naming scheme.
+ * Images only option now transfered server side (so no spoofing).
+ * Automated uninstall with cleanup (all file and comments will be saved).
+
 **0.25**
 
 Changes by Pascal de Vink ( www.finalist.com ):
+
  * Dutch translation.
  * Options page.
  * Filetype checking improvments.
@@ -64,7 +75,6 @@ Changes by Pascal de Vink ( www.finalist.com ):
  
 = Coming soon =
 
- * Options page.
  * Moving uploaded files to somewhere more sensible (e.g. uploads/comments on standard Wordpress and the blogs folder for Mu).
  * New translations including BR_pt, French and German.
  * Increased theme compatibility (testing needed).
