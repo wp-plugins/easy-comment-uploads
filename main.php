@@ -2,11 +2,18 @@
 /*
 Plugin Name: Easy Comment Uploads
 Plugin URI: http://wordpress.org/extend/plugins/easy-comment-uploads/
-Description: Allow your users to easily upload images and files in their comments.
+Description: Allow your users to easily upload images and files with their comments.
 Author: Tom Wright
-Version: 0.61
-Author URI: http://twright.langtreeshout.org/
+Version: 0.71
+Author URI: http://gplus.to/twright/
+License: GPLv3
 */
+
+// Take a image url and return a url to a thumbnail for height $h, width $w
+// and using zoom/crop mode $zc
+function ecu_thumbnail($url, $h='null', $w='null', $zc=3) {
+    return ecu_plugin_url() . "timthumb.php?src=$url&zc=$zc&h=$h&w=$w";
+}
 
 // Replaces [tags] with correct html
 // Accepts either [img]image.png[/img] or [file]file.ext[/file] for other files
@@ -20,17 +27,22 @@ function ecu_insert_links($comment) {
         // Validate tags contain links of the correct format
         if (filter_var($match[2], FILTER_VALIDATE_URL)) {
             // Insert correct code based on tag
+            preg_match('/[^\/]*$/', $match[2], $filename);
+            $name = get_option('ecu_show_full_file_path') ? $match[2]
+                : $filename[0];
             if ($match[1] == 'img') {
+                $thumbnail = ecu_thumbnail($match[2], 300);
                 $html = "<a href='$match[2]' rel='lightbox[comments]'>"
-                    . "<img class='ecu_images' src='$match[2]' /></a>";
+                    . (get_option('ecu_display_images_as_links') ? "Image: $name"
+                    : "<img class='ecu_images' src='$thumbnail' />")
+                    . '</a>';
             } elseif ($match[1] == 'file') {
-                preg_match('/[^\/]*$/', $match[2], $filename);
-                $name = get_option('ecu_show_full_file_path') ? $match[2]
-                    : $filename[0];
                 $html = "<a href='$match[2]'>File: $name</a>";
             }
             
             $comment = str_replace($match[0], $html, $comment);
+        } else {
+            echo $match[2];
         }
     }
 
@@ -42,11 +54,21 @@ function ecu_insert_links($comment) {
 // the plugin if it has not been edited by the user.
 function ecu_get_blacklist() {
     $default_blacklist = array('htm', 'html', 'shtml', 'mhtm', 'mhtml', 'js',
-        'php', 'php3', 'php4', 'php5', 'php6',
+        'php', 'php3', 'php4', 'php5', 'php6', 'phtml',
         'cgi', 'fcgi', 'pl', 'perl', 'p6', 'asp', 'aspx',
         'htaccess',
         'py', 'python', 'exe', 'bat',  'sh', 'run', 'bin', 'vb', 'vbe', 'vbs');
     return get_option('ecu_file_extension_blacklist', $default_blacklist);
+}
+
+// A list of file extensions which should not be harmful
+function ecu_get_whitelist() {
+    $default_whitelist = array('odt', 'ods', 'odp', 'doc', 'docx', 'xls',
+        'xlsx', 'ppt', 'pptx', 'pdf', 'bmp', 'gif', 'jpg', 'jpeg', 'webp',
+        'png', 'mp3', 'ogg', 'wav', 'webm', 'avi', 'mkv', 'mov', 'mp4',
+        'txt', 'psd', 'xcf', 'rtf', 'zip', '7z', 'xz', 'tar', 'gz', 'bz2',
+        'tgz', 'tbz', 'tbz2', 'txz', 'lzma');
+    return get_option('ecu_file_extension_whitelist', $default_whitelist);
 }
 
 // Get user ip address
@@ -106,22 +128,14 @@ function ecu_plugin_url() {
     return plugins_url('easy-comment-uploads/');
 }
 
-// Core upload form
-function ecu_upload_form_core($prompt='Select File: ') {
-    echo "
-    <form target='hiddenframe' enctype='multipart/form-data'
-    action='" . ecu_plugin_url() . 'upload.php'
-    .  "' method='POST' name='uploadform'
-    id='uploadform' style='text-align : center'>
-        " . wp_nonce_field('ecu_upload_form') . "
-        <label for='file' name='prompt'>$prompt</label>
-        <input type='file' name='file' id='file'
-            onchange='document.uploadform.submit ();
-            document.uploadform.file.value = \"\"' />
-    </form>
+// Get the full path to the wordpress root directory
+function ecu_wordpress_root_path() {
+    $path = dirname(__FILE__);
+    
+    while (!file_exists($path . '/wp-config.php'))
+        $path = dirname($path);
 
-    <iframe name='hiddenframe' style='display : none' frameborder='0'></iframe>
-    ";
+    return str_replace("\\", "/", $path) . '/';
 }
 
 // Placeholder for preview of uploaded files
@@ -132,14 +146,14 @@ function ecu_upload_form_preview($display=true) {
 
 // An iframe containing the upload form
 function ecu_upload_form_iframe() {
-    echo "<iframe style='width : 100%; height : 60px;"
-        . " border: 0px solid #ffffff;' src='"
-        . ecu_plugin_url () . "upload-form.php"
+    echo "<iframe class='ecu_upload_frame 'scrolling='no' frameborder='0'"
+        . "allowTransparency='true'"
+        . " src='" . ecu_plugin_url () . "upload-form.php"
         . "' name='upload_form'></iframe>";
 }
 
 // Complete upload form
-function ecu_upload_form($title, $msg, $prompt, $check=true) {
+function ecu_upload_form($title, $msg, $check=true) {
     if ( !ecu_allow_upload() && $check ) return;
 
     echo "
@@ -162,13 +176,11 @@ function ecu_upload_form($title, $msg, $prompt, $check=true) {
 }
 
 // Default comment form
-function ecu_upload_form_default($prompt=true) {
+function ecu_upload_form_default($check=true) {
     ecu_upload_form (
         __('Upload Files', 'easy-comment-uploads'), // $title
         '<p>' . ecu_message_text() . '</p>', // $msg
-        __('Select File', 'easy-comment-uploads') . ': ', // $prompt
-        $check, // $prompt
-        true // $check
+        $check // $check
     );
 }
 
@@ -177,25 +189,21 @@ function ecu_message_text() {
     if (get_option('ecu_message_text'))
         return get_option('ecu_message_text');
     else
-        return __('You can include images or files in your comment by'
-            . ' selecting them below. Once you select a file, it will be'
-            . ' uploaded and a link to it added to your comment. You can'
-            . ' upload as many images or files as you like and they will all'
-            . ' be added to your comment.', 'easy-comment-uploads');
+        return __('You can include images or files in your comment by selecting them below. Once you select a file, it will be uploaded and a link to it added to your comment. You can upload as many images or files as you like and they will all be added to your comment.', 'easy-comment-uploads');
 }
 
 // Add options menu item (restricted to level_10 users)
 function ecu_options_menu() {
     if (current_user_can("level_10"))
-        add_options_page('Easy Comment Uploads options',
+        add_plugins_page('Easy Comment Uploads options',
             'Easy Comment Uploads', 8, __FILE__, 'ecu_options_page');
 }
-
+ 
 // Provide an options page in wp-admin
 function ecu_options_page() {
     // Handle changed options
     if (isset($_POST['submitted'])) {
-        check_admin_referer ('easy-comment-uploads');
+        check_admin_referer('easy-comment-uploads');
 
         // Update options
         update_option ('ecu_images_only', $_POST['images_only'] != null);
@@ -206,6 +214,8 @@ function ecu_options_page() {
             (int) ($_POST['hide_comment_form'] != null));
         update_option ('ecu_show_full_file_path',
             (int) ($_POST['show_full_file_path'] != null));
+        update_option ('ecu_display_images_as_links',
+            (int) ($_POST['display_images_as_links'] != null));
         if (isset($_POST['max_file_size'])
             && preg_match ('/[0-9]+/', $_POST['max_file_size'])
             && $_POST['max_file_size'] >= 0)
@@ -237,6 +247,9 @@ function ecu_options_page() {
         if (isset($_POST['enabled_pages'])
             && preg_match('/^(all)|(([0-9]+ )*[0-9]+)$/', $_POST['enabled_pages']))
             update_option('ecu_enabled_pages', $_POST['enabled_pages']);
+        if (isset($_POST['enabled_pages'])
+            && preg_match('/^([1-9][0-9]*)?$/', $_POST['enabled_category']))
+            update_option('ecu_enabled_category', $_POST['enabled_category']);
         if (isset($_POST['file_extension_blacklist'])
             && $_POST['file_extension_blacklist'] != implode(', ',
                 ecu_get_blacklist())
@@ -251,16 +264,23 @@ function ecu_options_page() {
         if (isset($_POST['file_extension_whitelist'])
             && preg_match('/^[a-z0-9]+([, ][ ]*[a-z0-9]+)*$/i',
             $_POST['file_extension_whitelist']))
-            if ($_POST['file_extension_whitelist'] == 'ignore')
+            if ($_POST['file_extension_whitelist'] == 'default')
                 delete_option('ecu_file_extension_whitelist');
+            else if ($_POST['file_extension_whitelist'] == 'ignore')
+                update_option('ecu_file_extension_whitelist', array());
             else update_option('ecu_file_extension_whitelist',
                 preg_split("/[, ][ ]*/", $_POST['file_extension_whitelist']));
         if (isset($_POST['upload_form_text']))
             update_option('ecu_message_text', $_POST['upload_form_text']);
+        if (isset($_POST['upload_dir_path']))
+            if ($_POST['upload_dir_path'] == '')
+                delete_option('ecu_upload_dir_path');
+            else
+                update_option('ecu_upload_dir_path', $_POST['upload_dir_path']);
 
         // Inform user
         echo '<div id="message" class="updated fade"><p>'
-            . __('Easy Comment Uploads options saved.')
+            . 'Easy Comment Uploads options saved.'
             . '</p></div>';
     }
 
@@ -270,19 +290,21 @@ function ecu_options_page() {
     $images_only = (get_option('ecu_images_only')) ? 'checked' : '';
     $hide_comment_form = (get_option('ecu_hide_comment_form') ? 'checked' : '');
     $show_full_file_path = (get_option('ecu_show_full_file_path') ? 'checked' : '');
+    $display_images_as_links = (get_option('ecu_display_images_as_links') ? 'checked' : '');
     $premission_required = array();
     foreach (array('none', 'read', 'edit_posts', 'upload_files') as $elem)
         $permission_required[] =
             ((get_option('ecu_permission_required') == $elem) ? 'checked' : '');
     $max_file_size = get_option('ecu_max_file_size');
     $enabled_pages = get_option('ecu_enabled_pages');
+    $enabled_category = get_option('ecu_enabled_category');
     $file_extension_blacklist = ecu_get_blacklist() ?
         implode(', ', ecu_get_blacklist()) : 'none';
-    $file_extension_whitelist
-        = get_option('ecu_file_extension_whitelist') === false
-        ? 'ignore' : implode(', ', get_option('ecu_file_extension_whitelist'));
+    $file_extension_whitelist = ecu_get_whitelist() ?
+        implode(', ', ecu_get_whitelist()) : 'ignore';
     $uploads_per_hour = get_option('ecu_uploads_per_hour');
     $upload_form_text = ecu_message_text();
+    $upload_dir_path = get_option('ecu_upload_dir_path');
 
     // Info for form
     $actionurl = $_SERVER['REQUEST_URI'];
@@ -291,12 +313,23 @@ function ecu_options_page() {
     echo <<<END
         <div class="wrap" style="max-width:950px !important;">
         <h2>Easy Comment Uploads</h2>
+        
+        <a href='http://goo.gl/WFJP6' target='_blank' style='text-decoration: none'>
+        <p id='ecu_donate' style='background-color: #757575; padding: 0.5em; color: white; font-weight: bold; text-align: center; font-size: 11pt; border-radius: 10px'>
+            If you find this plugin useful and want to support its future
+            development, please consider donating.
+            
+                <input type="submit" class="button-primary" style='margin-left: 1em'
+                name="donate" value="Donate" />
+            
+        </p>
+        </a>
 
         <form name="ecuform" action="$action_url" method="post">
             <input type="hidden" name="submitted" value="1" />
             $nonce_field
 
-            <h3>Allowed Files</h3>
+            <h3>Files</h3>
 
             <ul>
             <li><input id="images_only" type="checkbox" name="images_only" $images_only />
@@ -310,13 +343,19 @@ function ecu_options_page() {
             <li>Blacklist the following file extensions:
             <input id="file_extenstion_blacklist" type="text" name="file_extension_blacklist" value="$file_extension_blacklist" />
             <br />
-            <label for="file_extenstion_blacklist">(extensions seperated with spaces, 'none' to allow all (not recommended) or 'default' to restore the default list)</label>
+            <label for="file_extenstion_blacklist">(extensions seperated with spaces, 'none' to allow all (not recommended), or 'default' to restore the default list)</label>
             </li>
 
             <li>Allow only the following file extensions:
             <input id="file_extenstion_whitelist" type="text" name="file_extension_whitelist" value="$file_extension_whitelist" />
             <br />
-            <label for="file_extension_whitelist">(extensions seperated with spaces or 'ignore' to disable the whitelist)</label>
+            <label for="file_extension_whitelist">(extensions seperated with spaces, 'ignore' to disable the whitelist, or 'default' to restore the default list)</label>
+            </li>
+            
+            <li>Store uploads in folder:
+            <input id="upload_dir_path" type="text" name="upload_dir_path" value="$upload_dir_path" />
+            <br />
+            <label for="file_extension_whitelist">(path relative to the Wordpress installation directory or leave blank for default location)</label>
             </li>
             </ul>
 
@@ -386,7 +425,17 @@ function ecu_options_page() {
                 name="hide_comment_form" $hide_comment_form />
                 <label for="hide_comment_form">Hide from comment forms
             </li>
-
+            
+            <li>
+                Only allow uploads in this category:
+                <input id="enabled_category" type="text"
+                name="enabled_category" value="$enabled_category" />
+                <br />
+                <label for="enabled_category">
+                (<a href= "http://www.wprecipes.com/how-to-find-wordpress-category-id">category id</a> or leave blank to enable globally)
+                </label>
+            </li>
+            
             <li>
                 Only allow uploads on these pages:
                 <input id="enabled_pages" type="text" name="enabled_pages"
@@ -408,6 +457,14 @@ function ecu_options_page() {
                     Show full url in links to files
                 </label>
             </li>
+            
+            <li>
+                <input id="display_images_as_links" type="checkbox"
+                name="display_images_as_links" $display_images_as_links />
+                <label for="display_images_as_links">
+                    Replace images with links
+                </label>
+            </li>
             </ul>
 
             <p class="submit"><input type="submit" class="button-primary"
@@ -419,20 +476,33 @@ END;
     echo "
     <div style='margin : auto auto auto 2em; width : 40em;
      background-color : ghostwhite; border : 1px dashed gray;
-     padding : 0 1em 0 1em'>
+     padding : 0 1em 0em 1em'>
     ";
     ecu_upload_form_default(false);
     echo "</div>";
 }
 
 function ecu_upload_dir_path() {
-    $upload_dir = wp_upload_dir();
-    return $upload_dir['path'] . '/'; // . '/comments/';
+    if (get_option('ecu_upload_dir_path')) {
+        return ecu_wordpress_root_path() . get_option('ecu_upload_dir_path')  . '/';
+    } else {
+        $upload_dir = wp_upload_dir();
+        return $upload_dir['path'] . '/';                
+    }
 }
 
 function ecu_upload_dir_url() {
-    $upload_dir = wp_upload_dir();
-    return $upload_dir['url'] . '/'; // . '/comments/';
+    if (get_option('ecu_upload_dir_path')) {
+        return get_option('siteurl') . '/' . get_option('ecu_upload_dir_path') . '/';
+    } else {
+        $upload_dir = wp_upload_dir();
+        return $upload_dir['url'] . '/';        
+    }
+}
+
+// Seperate function as closures were not supported before 5.3.0
+function ecu_extract_cat_ID($category) {
+    return $category->cat_ID;
 }
 
 // Are uploads allowed?
@@ -440,21 +510,28 @@ function ecu_allow_upload() {
     global $post;
     $permission_required = get_option('ecu_permission_required');
     $enabled_pages = get_option('ecu_enabled_pages');
+    $enabled_category = get_option('ecu_enabled_category');
+    $categories = array_map('ecu_extract_cat_ID', get_the_category());
 
     return ($permission_required == 'none'
         || current_user_can($permission_required))
-        && (in_array ($post->ID, explode(' ', $enabled_pages))
-            || $enabled_pages == "all");
+        && (in_array($post->ID, explode(' ', $enabled_pages))
+            || $enabled_pages == 'all')
+        && (in_array($enabled_category, $categories)
+            || $enabled_category == '');
 }
 
 // Set options to defaults, if not already set
 function ecu_initial_options() {
     ecu_textdomain();
+    
     wp_enqueue_style('ecu', ecu_plugin_url () . 'style.css');
     if (get_option('ecu_permission_required') === false)
         update_option('ecu_permission_required', 'none');
     if (get_option('ecu_show_full_file_path') === false)
         update_option('ecu_show_full_file_path', 0);
+    if (get_option('ecu_display_images_as_links') === false)
+        update_option('ecu_display_images_as_links', 0);
     if (get_option('ecu_hide_comment_form') === false)
         update_option('ecu_hide_comment_form', 0);
     if (get_option('ecu_images_only') === false)
@@ -463,6 +540,8 @@ function ecu_initial_options() {
         update_option('ecu_max_file_size', 0);
     if (get_option('ecu_enabled_pages') === false)
         update_option('ecu_enabled_pages', 'all');
+    if (get_option('ecu_enabled_category') === false)
+        update_option('ecu_enabled_category', '');
     if (get_option('ecu_ip_upload_times') === false)
         update_option('ecu_ip_upload_times', array());
     if (get_option('ecu_message_text') === false)
@@ -478,9 +557,8 @@ function ecu_initial_options() {
 
 // Set textdomain for translations (i18n)
 function ecu_textdomain() {
-    load_plugin_textdomain ('easy-comment-uploads',
-        'wp-content/plugins/easy-comment-uploads/',
-        'easy-comment-uploads/i18n/');
+    load_plugin_textdomain('easy-comment-uploads', false,
+        basename(dirname(__FILE__)) . '/languages');
 }
 
 // Register code with wordpress
