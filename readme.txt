@@ -4,7 +4,7 @@ Donate link: http://goo.gl/WFJP6x
 Tags: comments, uploads, images
 Requires at least: 3.0.0
 Tested up to: 3.2.1
-Stable tag: 0.71
+Stable tag: 1.01
 
 == Description ==
 
@@ -26,6 +26,10 @@ If you like it please rate it, give feedback or you can support its further deve
  This version contains many important security improvements. You should upgrade as soon as possible to make sure your site is secure.
 
 == Changelog ==
+
+**1.01**
+
+ * Fix bug preventing saving of options.
 
 **1.00**
 
@@ -145,7 +149,7 @@ Changes by Pascal de Vink (www.finalist.com):
 
 **0.20**
 
- * ru_RU translation thanks to Fat Cow (http://www.fatcow.com/).
+ * ru_RU translation thanks to Fat Cow.
 
 **0.19**
 
@@ -224,6 +228,7 @@ As with all plugins, new versions include security fixes and resolve other bugs 
 It should work in any modern browser. It does not require flash but does require JavaScript support.
 
 It has been tested with:
+
  * Google Chrome
  * Firefox (version 3 or higher)
  * Internet Explorer (version 6 or higher)
